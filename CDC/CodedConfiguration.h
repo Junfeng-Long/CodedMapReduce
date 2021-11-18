@@ -14,8 +14,8 @@ class CodedConfiguration : public Configuration {
     numReducer = 10;  // K
     load = 5;        // r    
     
-    inputPath = "./Input/Input10G";
-    outputPath = "./Output/Output10G";
+    inputPath = "../Input/Input10G";
+    outputPath = "../Output/Output10G";
     partitionPath = "./Partition/Partition10000-C";
     numSamples = 10000;    
   }
