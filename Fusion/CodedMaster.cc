@@ -25,7 +25,7 @@ using namespace std;
 
 void CodedMaster::run()
 {
-  cg = new CodeGeneration( conf.getNumInput(), conf.getNumReducer(), conf.getLoad() );
+  cg = new CodeGeneration( conf.getNumInput(), conf.getNumReducer(), conf.getLoad(), conf.getNumMasterFile(), conf.getNumWorkerFile() );
   if ( totalNode != 1 + conf.getNumReducer() ) {
     cout << "The number of workers mismatches the number of processes.\n";
     assert( false );
@@ -222,7 +222,7 @@ void CodedMaster::execMap()
 
     // Remove unnecessarily lists (partitions associated with the other nodes having the file)
     
-    NodeSet fsIndex = cg->getNodeSetFromFileID( inputId );
+    NodeSet fsIndex = cg->getNodeSetFromFileIDACDC( inputId );
     for ( unsigned int i = 0; i < conf.getNumReducer(); i++ ) {
       if( fsIndex.find( i + 1 ) != fsIndex.end() ) {
         LineList* list = pc[ i ];
@@ -257,7 +257,7 @@ void CodedMaster::execEncoding()
       NodeSet inputIdx( subsetS );
       inputIdx.erase( destId );
       
-      unsigned long fid = cg->getFileIDFromNodeSet( inputIdx );
+      unsigned long fid = cg->getFileIDFromNodeSetACDC( inputIdx );
       VpairList vplist;
       vplist.push_back( Vpair( destId, fid ) );
       
@@ -292,7 +292,7 @@ void CodedMaster::execEncoding()
       int destId = *qit;      
       NodeSet inputIdx( subsetS );
       inputIdx.erase( destId );
-      unsigned long fid = cg->getFileIDFromNodeSet( inputIdx );
+      unsigned long fid = cg->getFileIDFromNodeSetACDC( inputIdx );
       VpairList vplist;
       vplist.push_back( Vpair( destId, fid ) );
 
@@ -308,6 +308,7 @@ void CodedMaster::execEncoding()
       MetaData md;
       md.vpList = vplist;
       md.vpSize[ vplist[ 0 ] ] = size; // Assume Eta = 1;
+      md.partNumber = 1;
       md.size = size; 
       encodeDataSend[ nsid ].metaList.push_back( md );
     }

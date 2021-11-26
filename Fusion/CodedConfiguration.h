@@ -10,12 +10,14 @@ class CodedConfiguration : public Configuration {
   
  public:
  CodedConfiguration(): Configuration() {
-    numInput = 252;    // N is assumed to be K choose r     
-    numReducer = 10;  // K
-    load = 5;        // r    
+    numInput = 6;    // N is assumed to be K choose r     
+    numReducer = 3;  // K
+    load = 2;        // r  
+    master_file = 3;
+    worker_file = 3;  
     
-    inputPath = "../Input/Input10G";
-    outputPath = "../Output/Output10G";
+    inputPath = "../Input/Input1M";
+    outputPath = "../Output/Output1M";
     partitionPath = "../Partition/Partition10000-C";
     numSamples = 10000;    
   }

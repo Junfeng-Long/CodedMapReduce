@@ -81,7 +81,7 @@ void CodedWorker::run()
   // GENERATE CODING SCHEME AND MULTICAST GROUPS
   //cout<<"Node"<<rank<<"  Generating Code"<<endl;
   time = clock();
-  cg = new CodeGeneration( conf->getNumInput(), conf->getNumReducer(), conf->getLoad() );
+  cg = new CodeGeneration( conf->getNumInput(), conf->getNumReducer(), conf->getLoad(), conf->getNumMasterFile(), conf->getNumWorkerFile() );
   genMulticastGroup();
   time = clock() - time;
   rTime = double( time ) / CLOCKS_PER_SEC;
@@ -120,7 +120,8 @@ void CodedWorker::run()
   // SHUFFLING PHASE
   //cout<<"Node"<<rank<<"  Shuffle"<<endl;
   //time = clock();
-  execShuffle();
+  execShuffle1();
+  execShuffle2();
   //time = clock() - time;
   //cout << rank << ": Shuffle phase takes " << double( time ) / CLOCKS_PER_SEC << " seconds.\n";
 
@@ -209,9 +210,20 @@ void CodedWorker::execMap()
     }
 
     // Remove unnecessarily lists (partitions associated with the other nodes having the file)
-    NodeSet fsIndex = cg->getNodeSetFromFileID( inputId );
+    NodeSet ACDCfsIndex = cg->getNodeSetFromFileIDACDC( inputId );
     for ( unsigned int i = 0; i < conf->getNumReducer(); i++ ) {
-      if( i + 1 != rank && fsIndex.find( i + 1 ) != fsIndex.end() ) {
+      if( i + 1 != rank && ACDCfsIndex.find( i + 1 ) != ACDCfsIndex.end() ) {
+        LineList* list = pc[ i ];
+        // LineList* list = inputPartitionCollection[ inputId ][ i ];
+        for ( auto lit = list->begin(); lit != list->end(); lit++ ) {
+          delete [] *lit;
+        }
+        delete list;	
+      }
+    }
+    NodeSet CDCfsIndex = cg->getNodeSetFromFileIDCDC( inputId );
+    for ( unsigned int i = 0; i < conf->getNumReducer(); i++ ) {
+      if( i + 1 != rank && CDCfsIndex.find( i + 1 ) != CDCfsIndex.end() ) {
         LineList* list = pc[ i ];
         // LineList* list = inputPartitionCollection[ inputId ][ i ];
         for ( auto lit = list->begin(); lit != list->end(); lit++ ) {
@@ -236,19 +248,16 @@ void CodedWorker::execEncoding()
     unsigned lineSize = conf->getLineSize();
     SubsetSId nsid = cg->getSubsetSId(*i);
     unsigned long long maxSize = 0;
-    // Construct chucks of input from data with index ns\{q}
+    // Construct chucks of input from data with index, ACDC part no need to encode.
     for( auto qit = subsetS.begin(); qit != subsetS.end(); qit++ ) {
       int destId = *qit; 
       if ((unsigned)destId==(unsigned)rank) continue;     
       NodeSet inputIdx( subsetS );
       inputIdx.erase( destId );
       
-      
-      unsigned long fid = cg->getFileIDFromNodeSet( inputIdx );
+      unsigned long fid = cg->getFileIDFromNodeSetACDC( inputIdx );
       VpairList vplist;
       vplist.push_back( Vpair( destId, fid ) );
-      
-      
       
       unsigned int partitionId = destId - 1;
       
@@ -270,20 +279,175 @@ void CodedWorker::execEncoding()
       encodePreData[ nsid ][ vplist ].push_back( dc );
       delete ll;
     }
+    // Construct chucks of input from data with index, CDC part, need to encode.
+    for( auto qit = subsetS.begin(); qit != subsetS.end(); qit++ ) {
+      if( (unsigned int) *qit == rank ) continue;
+      int destId = *qit;      
+      NodeSet inputIdx( subsetS );
+      inputIdx.erase( destId );
+      
+      unsigned long fid = cg->getFileIDFromNodeSetCDC( inputIdx );
+      VpairList vplist;      
+      vplist.push_back( Vpair( destId, fid ) );
+      
+      unsigned int partitionId = destId - 1;
+      
+      LineList* ll = inputPartitionCollection[ fid ][ partitionId ];
+
+      auto lit = ll->begin();
+      unsigned int numPart = conf->getLoad();
+      unsigned long long chunkSize = ll->size() / numPart; // a number of lines ( not bytes )
+      // first chunk to second last chunk
+      for( unsigned int ci = 0; ci < numPart - 1; ci++ ) {
+	      unsigned char* chunk = new unsigned char[ chunkSize * lineSize ];
+        for( unsigned long long j = 0; j < chunkSize; j++ ) {
+          memcpy( chunk + j * lineSize, *lit, lineSize );
+          lit++;
+        }
+        DataChunk dc;
+        dc.data = chunk;
+        dc.size = chunkSize;
+        encodePreData[ nsid ][ vplist ].push_back( dc );
+      }
+      // last chuck
+      unsigned long long lastChunkSize = ll->size() - chunkSize * ( numPart - 1 );      
+      unsigned char* chunk = new unsigned char[ lastChunkSize * lineSize ];
+      for( unsigned long long j = 0; j < lastChunkSize; j++ ) {
+        memcpy( chunk + j * lineSize, *lit, lineSize );
+        lit++;
+      }
+      DataChunk dc;
+      dc.data = chunk;
+      dc.size = lastChunkSize;
+      encodePreData[ nsid ][ vplist ].push_back( dc );
+
+      // Determine associated chunk of a worker ( order in ns )
+      unsigned int rankChunk = 0;  // in [ 0, ... , r - 1 ]
+      for( auto it = inputIdx.begin(); it != inputIdx.end(); it++ ) {
+        if( (unsigned int) *it == rank ) {
+          break;
+        }
+          rankChunk++;
+      }
+      maxSize = max( maxSize, encodePreData[ nsid ][ vplist ][ rankChunk ].size );
+
+      // Remode unused intermediate data from Map
+      for( auto lit = ll->begin(); lit != ll->end(); lit++ ) {
+	      delete [] *lit;
+      }
+      delete ll;
+    }
+
+    // Initialize encode data
+    encodeDataSend[ nsid ].data = new unsigned char[ maxSize * lineSize ](); // Initial it with 0
+    encodeDataSend[ nsid ].size = maxSize;
+    unsigned char* data = encodeDataSend[ nsid ].data;
+
+    // Encode Data
+    for( auto qit = subsetS.begin(); qit != subsetS.end(); qit++ ) {
+      if( (unsigned int) *qit == rank ) {
+	      continue;
+      }
+      int destId = *qit;      
+      NodeSet inputIdx( subsetS );
+      inputIdx.erase( destId );
+      unsigned long fid = cg->getFileIDFromNodeSetCDC( inputIdx );
+      VpairList vplist;
+      vplist.push_back( Vpair( destId, fid ) );
+
+      // Determine associated chunk of a worker ( order in ns )
+      unsigned int rankChunk = 0;  // in [ 0, ... , r - 1 ]
+      for( auto it = inputIdx.begin(); it != inputIdx.end(); it++ ) {
+      if( (unsigned int) *it == rank ) {
+        break;
+      }
+	      rankChunk++;
+      }
+      
+      // Start encoding
+      unsigned char* predata = encodePreData[ nsid ][ vplist ][ rankChunk ].data;
+      unsigned long long size = encodePreData[ nsid ][ vplist ][ rankChunk ].size;
+      unsigned long long maxiter = size * lineSize / sizeof( uint32_t );
+      for( unsigned long long i = 0; i < maxiter; i++ ) {
+	      ( ( uint32_t* ) data )[ i ] ^= ( ( uint32_t* ) predata )[ i ];
+      }
+
+      // Fill metadata
+      MetaData md;
+      md.vpList = vplist;
+      md.vpSize[ vplist[ 0 ] ] = size; // Assume Eta = 1;
+      md.partNumber = rankChunk + 1;
+      md.size = size; 
+      encodeDataSend[ nsid ].metaList.push_back( md );
+    }
+
+    // Serialize Metadata
+    EnData& endata = encodeDataSend[ nsid ];
+    unsigned int ms = 0;
+    ms += sizeof( unsigned int ); // metaList.size()
+    for ( unsigned int m = 0; m < endata.metaList.size(); m++ ) {
+      ms += sizeof( unsigned int ); // vpList.size()
+      ms += sizeof( int ) * 2 * endata.metaList[ m ].vpList.size(); // vpList
+      ms += sizeof( unsigned int ); // vpSize.size()
+      ms += ( sizeof( int ) * 2 + sizeof( unsigned long long ) ) * endata.metaList[ m ].vpSize.size(); // vpSize
+      ms += sizeof( unsigned int ); // partNumber
+      ms += sizeof( unsigned long long ); // size
+    }
+    encodeDataSend[ nsid ].metaSize = ms;
+
+    unsigned char* mbuff = new unsigned char[ ms ];
+    unsigned char* p = mbuff;
+    unsigned int metaSize = endata.metaList.size();
+    memcpy( p, &metaSize, sizeof( unsigned int ) );
+    p += sizeof( unsigned int );
+    // meta data List
+    for ( unsigned int m = 0; m < metaSize; m++ ) {
+      MetaData mdata = endata.metaList[ m ];
+      unsigned int numVp = mdata.vpList.size();
+      memcpy( p, &numVp, sizeof( unsigned int ) );
+      p += sizeof( unsigned int );
+      // vpair List
+      for ( unsigned int v = 0; v < numVp; v++ ) {
+        memcpy( p, &( mdata.vpList[ v ].first ), sizeof( int ) );
+        p += sizeof( int );
+        memcpy( p, &( mdata.vpList[ v ].second ), sizeof( int ) );
+        p += sizeof( int );
+      }
+      // vpair size Map
+      unsigned int numVps = mdata.vpSize.size();
+      memcpy( p, &numVps, sizeof( unsigned int ) );
+      p += sizeof( unsigned int );
+      for ( auto vpsit = mdata.vpSize.begin(); vpsit != mdata.vpSize.end(); vpsit++ ) {
+        Vpair vp = vpsit->first;
+        unsigned long long size = vpsit->second;
+        memcpy( p, &( vp.first ), sizeof( int ) );
+        p += sizeof( int );
+        memcpy( p, &( vp.second ), sizeof( int ) );
+        p += sizeof( int );
+        memcpy( p, &size, sizeof( unsigned long long ) );
+        p += sizeof( unsigned long long );
+      }
+      memcpy( p, &( mdata.partNumber ), sizeof( unsigned int ) );
+      p += sizeof( unsigned int );
+      memcpy( p, &( mdata.size ), sizeof( unsigned long long ) );
+      p += sizeof( unsigned long long );
+    }
+    encodeDataSend[ nsid ].serialMeta = mbuff;
   }
 }
 
 
-void CodedWorker::execShuffle()
+void CodedWorker::execShuffle1()
 {
   //clock_t time=0;
   //clock_t t;
+  int totalsize = 0;
   vector< NodeSet > SetS =  cg->getNodeSubsetSContain(rank);
   for (auto i = SetS.begin(); i != SetS.end(); i++){
     SubsetSId nsid = cg->getSubsetSId(*i);
     MPI::Intracomm mcComm = multicastGroupMap[ nsid ];
     //t = clock();
-    recvEncodeData(nsid, 0, mcComm);
+    recvEncodeData(nsid, 0, mcComm, &totalsize);
     //t = clock() - t;
     //time += t;
   }
@@ -378,6 +542,103 @@ void CodedWorker::execShuffle()
   
 }
 
+void CodedWorker::execShuffle2()
+{
+  int totalsize = 0;
+  // SUBSET-BY-SUBSET
+  // *** If it is to be used, need to fix ns to nsid.
+  // vector< NodeSet > subsetList = cg->getNodeSubsetS();
+  // for( auto nsit = subsetList.begin(); nsit != subsetList.end(); nsit++ ) {
+  //   NodeSet ns = *nsit;
+  //   MPI::Intracomm mcComm = multicastGroupMap[ ns ];
+  //   unsigned int rootId = 0;
+  //   for( auto nit = ns.begin(); nit != ns.end(); nit++ ) {
+  //     mcComm.Barrier();      
+  //     if( (unsigned int)( rank ) == (unsigned int)( *nit ) ) {
+  // 	// Active Node
+  // 	sendEncodeData( encodeDataSend[ ns ], mcComm );	
+  //     }
+  //     else {
+  // 	if( ns.find( rank ) != ns.end() ) {
+  // 	  // Receive Node
+  // 	  recvEncodeData( ns, rootId, mcComm );
+  // 	}
+  // 	else {
+  // 	  // Do nothing
+  // 	}
+
+  //     }
+  //     rootId++;
+  //     mcComm.Barrier();
+  //   }
+  // }
+
+
+  // NODE-BY-NODE
+  clock_t time;
+  //map< NodeSet, SubsetSId > ssmap = cg->getSubsetSIdMap();
+  for ( unsigned int activeId = 1; activeId <= conf->getNumReducer(); activeId++ ) {
+    unsigned long long tolSize;
+    clock_t txTime;
+    workerComm.Barrier();
+    if ( rank == activeId ) {
+      time = clock();
+      txTime = 0;
+      tolSize = 0;
+    }
+    vector< NodeSet >& vset = cg->getNodeSubsetSContain( activeId );
+    //for( auto nsit = ssmap.begin(); nsit != ssmap.end(); nsit++ ) {
+    for( auto nsit = vset.begin(); nsit != vset.end(); nsit++ ) {
+      // NodeSet ns = nsit->first;
+      // SubsetSId nsid = nsit->second;
+      NodeSet ns = *nsit;
+      SubsetSId nsid = cg->getSubsetSId( ns );
+
+      // Ignore subset that does not contain the activeId
+      if ( ns.find( activeId ) == ns.end() ) {
+  	    continue;
+      }
+
+      MPI::Intracomm mcComm = multicastGroupMap[ nsid ];
+      if ( rank == activeId ) {
+	      txTime -= clock();
+  	    sendEncodeData( encodeDataSend[ nsid ], mcComm );
+	      txTime += clock();
+	      EnData& endata = encodeDataSend[ nsid ];
+	      tolSize += ( endata.size * conf->getLineSize() ) + endata.metaSize + ( 2 * sizeof(unsigned long long ) );
+      }
+      else if ( ns.find( rank ) != ns.end() ) {
+        //convert activeId to rootId of a particular multicast group
+        unsigned int rootId = 0;
+        for( auto nid = ns.begin(); nid != ns.end(); nid++ ) {
+          if( (unsigned int)(*nid) == activeId ) {
+            break;
+          }
+          rootId++;	  
+        }
+    
+        recvEncodeData( nsid, rootId, mcComm, &totalsize );
+        /* int crank, csize;
+        MPI_Comm_rank(mcComm, &crank);
+        MPI_Comm_size(mcComm, &csize);
+        cout<<"worker c_rank: "<<crank<<"    "<<"worker c_size"<<"   "<<csize<<endl; */
+      }
+    }
+
+    // Active node should stop timer here
+    workerComm.Barrier();        
+    if ( rank == activeId ) {
+      time = clock() - time;
+      double rTime = double( time ) / CLOCKS_PER_SEC;
+      double txRate = ( tolSize * 8 * 1e-6 ) / ( double( txTime ) / CLOCKS_PER_SEC );
+      MPI::COMM_WORLD.Send( &rTime, 1, MPI::DOUBLE, 0, 0 );
+      MPI::COMM_WORLD.Send( &txRate, 1, MPI::DOUBLE, 0, 0 );      
+      //cout << rank  << ": Avg sending rate is " << ( tolSize * 8 ) / ( rtxTime * 1e6 ) << " Mbps, Data size is " << tolSize / 1e6 << " MByte\n";
+    }
+  }
+
+}
+
 
 void CodedWorker::execDecoding()
 {
@@ -409,8 +670,8 @@ void CodedWorker::execDecoding()
         }
         
         //cout<<encodePreData[ nsid ][ meta.vpList ].size<<endl;
-        unsigned char* oData = encodePreData[ nsid ][ meta.vpList ][ 0 ].data;
-        unsigned long long oSize = encodePreData[ nsid ][ meta.vpList ][ 0 ].size;
+        unsigned char* oData = encodePreData[ nsid ][ meta.vpList ][ meta.partNumber - 1 ].data;
+        unsigned long long oSize = encodePreData[ nsid ][ meta.vpList ][ meta.partNumber - 1 ].size;
         unsigned long long maxByte = min( oSize, cdSize ) * conf->getLineSize();
         unsigned long long maxIter = maxByte / sizeof( uint32_t );
         for( unsigned long long i = 0; i < maxIter; i++ ) {
@@ -425,16 +686,14 @@ void CodedWorker::execDecoding()
         assert( numDecode != metaList.size() - 1 );
       }
       
-      
-
       if( decodePreData[ nsid ][ dcMeta.vpList ].empty() ) {
       	for( unsigned int i = 0; i < conf->getLoad(); i++ ) {
       	  decodePreData[ nsid ][ dcMeta.vpList ].push_back( DataChunk() );
       	}
       }
 
-      decodePreData[ nsid ][ dcMeta.vpList ][ 0].data = cdData;
-      decodePreData[ nsid ][ dcMeta.vpList ][ 0].size = dcMeta.size;
+      decodePreData[ nsid ][ dcMeta.vpList ][ dcMeta.partNumber - 1 ].data = cdData;
+      decodePreData[ nsid ][ dcMeta.vpList ][ dcMeta.partNumber - 1 ].size = dcMeta.size;
     }
     
   }
@@ -591,7 +850,7 @@ void CodedWorker::sendEncodeData( CodedWorker::EnData& endata, MPI::Intracomm& c
 }
 
 
-void CodedWorker::recvEncodeData( SubsetSId nsid, unsigned int rootId, MPI::Intracomm& comm )
+void CodedWorker::recvEncodeData( SubsetSId nsid, unsigned int rootId, MPI::Intracomm& comm, int* totalsize )
 {
   //cout<<"691";
   EnData endata;
@@ -601,6 +860,7 @@ void CodedWorker::recvEncodeData( SubsetSId nsid, unsigned int rootId, MPI::Intr
   comm.Bcast( &( endata.size ), 1, MPI::UNSIGNED_LONG_LONG, rootId );
   //cout<<586<<endl;
   endata.data = new unsigned char[ endata.size * lineSize ];
+  *totalsize += endata.size;
   comm.Bcast( endata.data, endata.size*lineSize, MPI::UNSIGNED_CHAR, rootId );
   //cout<<699<<endl;
 

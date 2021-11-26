@@ -308,6 +308,7 @@ void CodedMaster::execEncoding()
       MetaData md;
       md.vpList = vplist;
       md.vpSize[ vplist[ 0 ] ] = size; // Assume Eta = 1;
+      md.partNumber = 1;
       md.size = size; 
       encodeDataSend[ nsid ].metaList.push_back( md );
     }

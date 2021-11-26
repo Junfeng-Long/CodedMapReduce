@@ -30,6 +30,8 @@ class CodeGeneration {
   int K;
   int R;
   int Eta;
+  int numM;
+  int numW;
   vector< NodeSet > NodeSubsetR; // subset of nodes of size R
   vector< NodeSet > NodeSubsetS; // subset of nodes of size R+1
   map< NodeSet, SubsetSId > SubsetSIdMap;  
@@ -44,11 +46,13 @@ class CodeGeneration {
   /* unordered_map< int, vector< NodeSet > > NodeSubsetSMap; // Map: key = nodeID, value = list of subset of size R+1 containing nodeId */
   /* unordered_map< unsigned long, NodeSet > FileNodeMap; */
   map< int, vector< NodeSet > > NodeSubsetSMap; // Map: key = nodeID, value = list of subset of size R+1 containing nodeId
-  map< unsigned long, NodeSet > FileNodeMap;  
-  map< NodeSet, unsigned long > NodeFileMap;
+  map< unsigned long, NodeSet > FileNodeMapACDC;  
+  map< NodeSet, unsigned long > NodeFileMapACDC;
+  map< unsigned long, NodeSet > FileNodeMapCDC;  
+  map< NodeSet, unsigned long > NodeFileMapCDC;
 
  public:
-  CodeGeneration( int _N, int _K, int _R );
+  CodeGeneration( int _N, int _K, int _R, int _numM, int _numW );
   ~CodeGeneration() {}
   static void printNodeSet( NodeSet ns );
   static void printVpairList( VpairList vpl );
@@ -72,14 +76,17 @@ class CodeGeneration {
   SubsetSId getSubsetSId( NodeSet ns );
   NodeSet getSubsetSFromId( SubsetSId id ) { return NodeSubsetS[ id ]; }
   vector< NodeSet >& getNodeSubsetSContain( int nid ) { return NodeSubsetSMap[ nid ]; }
-  NodeSet& getNodeSetFromFileID( unsigned long fid ) { return FileNodeMap[ fid ]; }
-  unsigned long getFileIDFromNodeSet( NodeSet ns ) { return NodeFileMap[ ns ]; }
+  NodeSet& getNodeSetFromFileIDACDC( unsigned long fid ) { return FileNodeMapACDC[ fid ]; }
+  unsigned long getFileIDFromNodeSetACDC( NodeSet ns ) { return NodeFileMapACDC[ ns ]; }
+  NodeSet& getNodeSetFromFileIDCDC( unsigned long fid ) { return FileNodeMapCDC[ fid ]; }
+  unsigned long getFileIDFromNodeSetCDC( NodeSet ns ) { return NodeFileMapCDC[ ns ]; }
 
  private:
   vector< NodeSet > generateNodeSubset( int r );
   void generateSubset( NodeSet preset, NodeSet remain, unsigned int size, vector< NodeSet >& list );
   
   void constructM();
+  void constructW();
   ImMatrix generateImMatrix( int nid );
   void generateSubsetDestVpairList();
   void generateSubsetSrcVjList();

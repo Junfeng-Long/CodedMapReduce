@@ -7,7 +7,7 @@
 
 using namespace std;
 
-CodeGeneration::CodeGeneration( int _N, int _K, int _R ): N( _N ), K( _K ), R( _R )
+CodeGeneration::CodeGeneration( int _N, int _K, int _R, int _numM, int _numW ): N( _N ), K( _K ), R( _R ), numM(_numM), numW(_numW)
 {
   NodeSubsetR = generateNodeSubset( R );
   
@@ -34,8 +34,13 @@ CodeGeneration::CodeGeneration( int _N, int _K, int _R ): N( _N ), K( _K ), R( _
 
   unsigned long fid = 1;
   for( auto nsit = NodeSubsetR.begin(); nsit != NodeSubsetR.end(); nsit++ ) {
-    FileNodeMap[ fid ] = *nsit;
-    NodeFileMap[ *nsit ] = fid;
+    FileNodeMapACDC[ fid ] = *nsit;
+    NodeFileMapACDC[ *nsit ] = fid;
+    fid++;
+  }
+  for( auto nsit = NodeSubsetR.begin(); nsit != NodeSubsetR.end(); nsit++ ) {
+    FileNodeMapCDC[ fid ] = *nsit;
+    NodeFileMapCDC[ *nsit ] = fid;
     fid++;
   }
 }
@@ -109,6 +114,16 @@ void CodeGeneration::constructM()
         M[ nid ].insert( f );
       }
       M[0].insert(f);
+      f++;
+    }
+  }
+  for( auto it = NodeSubsetR.begin(); it != NodeSubsetR.end(); ++it ) {
+    NodeSet ns = *it;
+    for ( int count = 0; count < Eta; count++ ) {
+      for ( auto nit = ns.begin(); nit != ns.end(); ++nit ) {
+        int nid = *nit;
+        M[ nid ].insert( f );
+      }
       f++;
     }
   }

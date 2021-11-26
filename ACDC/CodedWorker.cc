@@ -409,8 +409,8 @@ void CodedWorker::execDecoding()
         }
         
         //cout<<encodePreData[ nsid ][ meta.vpList ].size<<endl;
-        unsigned char* oData = encodePreData[ nsid ][ meta.vpList ][ 0 ].data;
-        unsigned long long oSize = encodePreData[ nsid ][ meta.vpList ][ 0 ].size;
+        unsigned char* oData = encodePreData[ nsid ][ meta.vpList ][ meta.partNumber ].data;
+        unsigned long long oSize = encodePreData[ nsid ][ meta.vpList ][ meta.partNumber ].size;
         unsigned long long maxByte = min( oSize, cdSize ) * conf->getLineSize();
         unsigned long long maxIter = maxByte / sizeof( uint32_t );
         for( unsigned long long i = 0; i < maxIter; i++ ) {
@@ -433,8 +433,8 @@ void CodedWorker::execDecoding()
       	}
       }
 
-      decodePreData[ nsid ][ dcMeta.vpList ][ 0].data = cdData;
-      decodePreData[ nsid ][ dcMeta.vpList ][ 0].size = dcMeta.size;
+      decodePreData[ nsid ][ dcMeta.vpList ][ dcMeta.partNumber ].data = cdData;
+      decodePreData[ nsid ][ dcMeta.vpList ][ dcMeta.partNumber ].size = dcMeta.size;
     }
     
   }

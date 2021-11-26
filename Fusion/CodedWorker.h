@@ -94,11 +94,12 @@ class CodedWorker
   void execMap();
   void execReduce();
   void execEncoding();
-  void execShuffle();
+  void execShuffle1();
+  void execShuffle2();
   void execDecoding();
   static void* parallelDecoder( void* pthis );
   void sendEncodeData( EnData& endata, MPI::Intracomm& comm );
-  void recvEncodeData( SubsetSId nsid, unsigned int actId, MPI::Intracomm& comm );
+  void recvEncodeData( SubsetSId nsid, unsigned int actId, MPI::Intracomm& comm, int* totalsize);
   void genMulticastGroup();
   void printLocalList();
   void writeInputPartitionCollection();

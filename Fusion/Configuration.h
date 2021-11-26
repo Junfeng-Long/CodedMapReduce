@@ -6,6 +6,8 @@ class Configuration {
  protected:
   unsigned int numReducer;
   unsigned int numInput;  
+  unsigned int master_file;
+  unsigned int worker_file;  
   
   const char *inputPath;
   const char *outputPath;
@@ -28,6 +30,8 @@ class Configuration {
   
   unsigned int getNumReducer() const { return numReducer; }
   unsigned int getNumInput() const { return numInput; }  
+  unsigned int getNumMasterFile() const { return master_file; }
+  unsigned int getNumWorkerFile() const { return worker_file; }  
   const char *getInputPath() const { return inputPath; }
   const char *getOutputPath() const { return outputPath; }
   const char *getPartitionPath() const { return partitionPath; }

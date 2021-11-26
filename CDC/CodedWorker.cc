@@ -224,9 +224,7 @@ void CodedWorker::execEncoding()
     
     // Construct chucks of input from data with index ns\{q}
     for( auto qit = nsit->begin(); qit != nsit->end(); qit++ ) {
-      if( (unsigned int) *qit == rank ) {
-	continue;
-      }
+      if( (unsigned int) *qit == rank ) continue;
       int destId = *qit;      
       NodeSet inputIdx( *nsit );
       inputIdx.erase( destId );
@@ -244,22 +242,22 @@ void CodedWorker::execEncoding()
       unsigned long long chunkSize = ll->size() / numPart; // a number of lines ( not bytes )
       // first chunk to second last chunk
       for( unsigned int ci = 0; ci < numPart - 1; ci++ ) {
-	unsigned char* chunk = new unsigned char[ chunkSize * lineSize ];
-	for( unsigned long long j = 0; j < chunkSize; j++ ) {
-	  memcpy( chunk + j * lineSize, *lit, lineSize );
-	  lit++;
-	}
-	DataChunk dc;
-	dc.data = chunk;
-	dc.size = chunkSize;
-	encodePreData[ nsid ][ vplist ].push_back( dc );
+	      unsigned char* chunk = new unsigned char[ chunkSize * lineSize ];
+        for( unsigned long long j = 0; j < chunkSize; j++ ) {
+          memcpy( chunk + j * lineSize, *lit, lineSize );
+          lit++;
+        }
+        DataChunk dc;
+        dc.data = chunk;
+        dc.size = chunkSize;
+        encodePreData[ nsid ][ vplist ].push_back( dc );
       }
       // last chuck
       unsigned long long lastChunkSize = ll->size() - chunkSize * ( numPart - 1 );      
       unsigned char* chunk = new unsigned char[ lastChunkSize * lineSize ];
       for( unsigned long long j = 0; j < lastChunkSize; j++ ) {
-	memcpy( chunk + j * lineSize, *lit, lineSize );
-	lit++;
+        memcpy( chunk + j * lineSize, *lit, lineSize );
+        lit++;
       }
       DataChunk dc;
       dc.data = chunk;
@@ -269,16 +267,16 @@ void CodedWorker::execEncoding()
       // Determine associated chunk of a worker ( order in ns )
       unsigned int rankChunk = 0;  // in [ 0, ... , r - 1 ]
       for( auto it = inputIdx.begin(); it != inputIdx.end(); it++ ) {
-	if( (unsigned int) *it == rank ) {
-	  break;
-	}
-	rankChunk++;
+        if( (unsigned int) *it == rank ) {
+          break;
+        }
+          rankChunk++;
       }
       maxSize = max( maxSize, encodePreData[ nsid ][ vplist ][ rankChunk ].size );
 
       // Remode unused intermediate data from Map
       for( auto lit = ll->begin(); lit != ll->end(); lit++ ) {
-	delete [] *lit;
+	      delete [] *lit;
       }
       delete ll;
     }
@@ -291,7 +289,7 @@ void CodedWorker::execEncoding()
     // Encode Data
     for( auto qit = nsit->begin(); qit != nsit->end(); qit++ ) {
       if( (unsigned int) *qit == rank ) {
-	continue;
+	      continue;
       }
       int destId = *qit;      
       NodeSet inputIdx( *nsit );
@@ -303,10 +301,10 @@ void CodedWorker::execEncoding()
       // Determine associated chunk of a worker ( order in ns )
       unsigned int rankChunk = 0;  // in [ 0, ... , r - 1 ]
       for( auto it = inputIdx.begin(); it != inputIdx.end(); it++ ) {
-	if( (unsigned int) *it == rank ) {
-	  break;
-	}
-	rankChunk++;
+      if( (unsigned int) *it == rank ) {
+        break;
+      }
+	      rankChunk++;
       }
       
       // Start encoding
@@ -314,7 +312,7 @@ void CodedWorker::execEncoding()
       unsigned long long size = encodePreData[ nsid ][ vplist ][ rankChunk ].size;
       unsigned long long maxiter = size * lineSize / sizeof( uint32_t );
       for( unsigned long long i = 0; i < maxiter; i++ ) {
-	( ( uint32_t* ) data )[ i ] ^= ( ( uint32_t* ) predata )[ i ];
+	      ( ( uint32_t* ) data )[ i ] ^= ( ( uint32_t* ) predata )[ i ];
       }
 
       // Fill metadata
@@ -353,24 +351,24 @@ void CodedWorker::execEncoding()
       p += sizeof( unsigned int );
       // vpair List
       for ( unsigned int v = 0; v < numVp; v++ ) {
-	memcpy( p, &( mdata.vpList[ v ].first ), sizeof( int ) );
-	p += sizeof( int );
-	memcpy( p, &( mdata.vpList[ v ].second ), sizeof( int ) );
-	p += sizeof( int );
+        memcpy( p, &( mdata.vpList[ v ].first ), sizeof( int ) );
+        p += sizeof( int );
+        memcpy( p, &( mdata.vpList[ v ].second ), sizeof( int ) );
+        p += sizeof( int );
       }
       // vpair size Map
       unsigned int numVps = mdata.vpSize.size();
       memcpy( p, &numVps, sizeof( unsigned int ) );
       p += sizeof( unsigned int );
       for ( auto vpsit = mdata.vpSize.begin(); vpsit != mdata.vpSize.end(); vpsit++ ) {
-	Vpair vp = vpsit->first;
-	unsigned long long size = vpsit->second;
-	memcpy( p, &( vp.first ), sizeof( int ) );
-	p += sizeof( int );
-	memcpy( p, &( vp.second ), sizeof( int ) );
-	p += sizeof( int );
-	memcpy( p, &size, sizeof( unsigned long long ) );
-	p += sizeof( unsigned long long );
+        Vpair vp = vpsit->first;
+        unsigned long long size = vpsit->second;
+        memcpy( p, &( vp.first ), sizeof( int ) );
+        p += sizeof( int );
+        memcpy( p, &( vp.second ), sizeof( int ) );
+        p += sizeof( int );
+        memcpy( p, &size, sizeof( unsigned long long ) );
+        p += sizeof( unsigned long long );
       }
       memcpy( p, &( mdata.partNumber ), sizeof( unsigned int ) );
       p += sizeof( unsigned int );
@@ -495,26 +493,26 @@ void CodedWorker::execDecoding()
       // Decode per VpairList
       MetaData dcMeta;
       for( auto mit = metaList.begin(); mit != metaList.end(); mit++ ) {
-	MetaData& meta = *mit;
-	if( encodePreData[ nsid ].find( meta.vpList ) == encodePreData[ nsid ].end() ) {
- 	  dcMeta = meta;
-	  // No original data for decoding;
-	  continue;
-	}
-	unsigned char* oData = encodePreData[ nsid ][ meta.vpList ][ meta.partNumber - 1 ].data;
-	unsigned long long oSize = encodePreData[ nsid ][ meta.vpList ][ meta.partNumber - 1 ].size;
-	unsigned long long maxByte = min( oSize, cdSize ) * conf->getLineSize();
-	unsigned long long maxIter = maxByte / sizeof( uint32_t );
-	for( unsigned long long i = 0; i < maxIter; i++ ) {
-	  ((uint32_t*) cdData )[ i ] ^= ((uint32_t*) oData )[ i ];
-	}
-	numDecode++;
+        MetaData& meta = *mit;
+        if( encodePreData[ nsid ].find( meta.vpList ) == encodePreData[ nsid ].end() ) {
+          dcMeta = meta;
+          // No original data for decoding;
+          continue;
+        }
+        unsigned char* oData = encodePreData[ nsid ][ meta.vpList ][ meta.partNumber - 1 ].data;
+        unsigned long long oSize = encodePreData[ nsid ][ meta.vpList ][ meta.partNumber - 1 ].size;
+        unsigned long long maxByte = min( oSize, cdSize ) * conf->getLineSize();
+        unsigned long long maxIter = maxByte / sizeof( uint32_t );
+        for( unsigned long long i = 0; i < maxIter; i++ ) {
+          ((uint32_t*) cdData )[ i ] ^= ((uint32_t*) oData )[ i ];
+        }
+        numDecode++;
       }
 
       // sanity check
       if( numDecode != metaList.size() - 1 ) {
-	cout << rank << ": Decode error " << numDecode << '/' << metaList.size() - 1 << endl;
-	assert( numDecode != metaList.size() - 1 );
+        cout << rank << ": Decode error " << numDecode << '/' << metaList.size() - 1 << endl;
+        assert( numDecode != metaList.size() - 1 );
       }
 
       if( decodePreData[ nsid ][ dcMeta.vpList ].empty() ) {
@@ -523,8 +521,8 @@ void CodedWorker::execDecoding()
       	}
       }
 
-      decodePreData[ nsid ][ dcMeta.vpList ][ dcMeta.partNumber - 1].data = cdData;
-      decodePreData[ nsid ][ dcMeta.vpList ][ dcMeta.partNumber - 1].size = dcMeta.size;
+      decodePreData[ nsid ][ dcMeta.vpList ][ dcMeta.partNumber - 1 ].data = cdData;
+      decodePreData[ nsid ][ dcMeta.vpList ][ dcMeta.partNumber - 1 ].size = dcMeta.size;
     }
   }
 
