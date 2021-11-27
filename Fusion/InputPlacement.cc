@@ -25,7 +25,7 @@ int main( int argc, char* argv[] )
   }
   else {
     conf = &codedConf;
-    cg = new CodeGeneration( conf->getNumInput(), conf->getNumReducer(), ((CodedConfiguration*) conf)->getLoad() );
+    cg = new CodeGeneration( conf->getNumInput(), conf->getNumReducer(), ((CodedConfiguration*) conf)->getLoad(), ((CodedConfiguration*) conf)->getNumMasterFile(), ((CodedConfiguration*) conf)->getNumWorkerFile() );
   }
 
   // Initialize OpenMPI
@@ -150,7 +150,7 @@ int main( int argc, char* argv[] )
 	unsigned int fid = i + 1;
 
 	// create multicast domain
-	NodeSet& ns = cg->getNodeSetFromFileID( fid );
+	NodeSet& ns = cg->getNodeSetFromFileIDACDC( fid );
 	int color = ( ns.find( nodeRank ) != ns.end() ) ? 1 : 0;
 	MPI::Intracomm mgComm = MPI::COMM_WORLD.Split( color, nodeRank );
 	if( color == 0 ) {

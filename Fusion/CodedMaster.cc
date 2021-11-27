@@ -78,7 +78,7 @@ void CodedMaster::run()
     maxTime = max( maxTime, rcvTime[ i ] );
   }
   cout << rank
-       << ": CODEGEN | Avg = " << setw(10) << avgTime/numWorker
+       << ": CODEGEN      | Avg = " << setw(10) << avgTime/numWorker
        << "   Max = " << setw(10) << maxTime << endl; 
       
   
@@ -99,11 +99,14 @@ void CodedMaster::run()
     avgTime += rcvTime[ i ];
     maxTime = max( maxTime, rcvTime[ i ] );
   }
-  avgTime += double( mtime ) / CLOCKS_PER_SEC;  
-  maxTime = max(maxTime, double( mtime ) / CLOCKS_PER_SEC);
+  avgTime += (double( mtime ) / CLOCKS_PER_SEC);  
+  maxTime = max(maxTime, (double( mtime ) / CLOCKS_PER_SEC));
   cout << rank
-       << ": MAP     | Avg = " << setw(10) << avgTime/(numWorker+1)
-       << "   Max = " << setw(10) << maxTime << endl;  
+       << ": MAP          | Avg = " << setw(10) << avgTime/(numWorker+1)
+       << "   Max = " << setw(10) << maxTime << endl
+       << "   Master = " << setw(10) << (double( mtime )/ CLOCKS_PER_SEC) << endl
+       << "   Average without Master = " << setw(10) << (avgTime-(double( mtime ) / CLOCKS_PER_SEC))/(numWorker) << endl; 
+ 
  
   
   // COMPUTE ENCODE TIME
@@ -123,12 +126,12 @@ void CodedMaster::run()
   avgTime += double( etime ) / CLOCKS_PER_SEC;  
   maxTime = max(maxTime, double( etime ) / CLOCKS_PER_SEC);
   cout << rank
-       << ": ENCODE  | Avg = " << setw(10) << avgTime/(numWorker+1)
+       << ": ENCODE       | Avg = " << setw(10) << avgTime/(numWorker+1)
        << "   Max = " << setw(10) << maxTime << endl;  
 
   // COMPUTE SHUFFLE TIME
   execShuffle();
-  /* avgTime = 0;
+  avgTime = 0;
   double txRate = 0;
   double avgRate = 0;
   for( int i = 1; i <= numWorker; i++ ) {
@@ -138,9 +141,9 @@ void CodedMaster::run()
     avgRate += txRate;
   }
   cout << rank
-       << ": SHUFFLE | Sum = " << setw(10) << avgTime
+       << ": CDC_SHUFFLE  | Sum = " << setw(10) << avgTime
        << "   Rate = " << setw(10) << avgRate/numWorker << " Mbps" << endl;
- */ 
+ 
   
 
   
@@ -154,7 +157,7 @@ void CodedMaster::run()
     maxTime = max( maxTime, rcvTime[ i ] );
   }
   cout << rank
-       << ": DECODE  | Avg = " << setw(10) << avgTime/numWorker
+       << ": DECODE       | Avg = " << setw(10) << avgTime/numWorker
        << "   Max = " << setw(10) << maxTime << endl;  
 
   // COMPUTE REDUCE TIME
@@ -166,7 +169,7 @@ void CodedMaster::run()
     maxTime = max( maxTime, rcvTime[ i ] );
   }
   cout << rank
-       << ": REDUCE  | Avg = " << setw(10) << avgTime/numWorker
+       << ": REDUCE       | Avg = " << setw(10) << avgTime/numWorker
        << "   Max = " << setw(10) << maxTime << endl;      
   
  
@@ -386,7 +389,7 @@ void CodedMaster::execShuffle()
   }
   time += clock();
   cout << rank
-       << ": SHUFFLE | Sum = " << setw(10) << double(time) / CLOCKS_PER_SEC
+       << ": ACDC_SHUFFLE | Sum = " << setw(10) << double(time) / CLOCKS_PER_SEC
        << "   Rate = " << setw(10) << ( tolSize * 8 * 1e-6 ) / ( double( txTime ) / CLOCKS_PER_SEC ) << " Mbps" << endl;
 }
 

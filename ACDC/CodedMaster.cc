@@ -103,7 +103,9 @@ void CodedMaster::run()
   maxTime = max(maxTime, double( mtime ) / CLOCKS_PER_SEC);
   cout << rank
        << ": MAP     | Avg = " << setw(10) << avgTime/(numWorker+1)
-       << "   Max = " << setw(10) << maxTime << endl;  
+       << "   Max = " << setw(10) << maxTime << endl
+       << "   Master = " << setw(10) << (double( mtime )/ CLOCKS_PER_SEC) << endl
+       << "   Average without Master = " << setw(10) << (avgTime-(double( mtime ) / CLOCKS_PER_SEC))/(numWorker) << endl; 
  
   
   // COMPUTE ENCODE TIME

@@ -32,7 +32,7 @@ int main( int argc, char* argv[] )
   }
   else {
     conf = &codedConf;
-    cg = new CodeGeneration( conf->getNumInput(), conf->getNumReducer(), ((CodedConfiguration*) conf)->getLoad() );
+    cg = new CodeGeneration( conf->getNumInput(), conf->getNumReducer(), ((CodedConfiguration*) conf)->getLoad(), ((CodedConfiguration*) conf)->getNumMasterFile(), ((CodedConfiguration*) conf)->getNumWorkerFile() );
   }
 
   // Initialize OpenMPI
@@ -92,25 +92,25 @@ int main( int argc, char* argv[] )
     if( !isCode ) {
       // Uncode TX
       for ( unsigned int i = 0; i < (unsigned int) numInput; i++ ) {
-	unsigned long long totalSize = fileInfos[ i ].endByte - fileInfos[ i ].startByte + 1;
-	unsigned long long currIndex = fileInfos[ i ].startByte;      
-	unsigned long long copySize;
+		unsigned long long totalSize = fileInfos[ i ].endByte - fileInfos[ i ].startByte + 1;
+		unsigned long long currIndex = fileInfos[ i ].startByte;      
+		unsigned long long copySize;
 
-	cout << "Sending file " << fileInfos[ i ].id << endl;      
-	// Initial transmission
-	MPI::COMM_WORLD.Send( &totalSize, 1, MPI::UNSIGNED_LONG_LONG, fileInfos[ i ].id, 0 );
+		cout << "Sending file " << fileInfos[ i ].id << endl;      
+		// Initial transmission
+		MPI::COMM_WORLD.Send( &totalSize, 1, MPI::UNSIGNED_LONG_LONG, fileInfos[ i ].id, 0 );
 
-	// read split and send to workers
-	inputFile.seekg( currIndex );      
-	while( currIndex <= fileInfos[ i ].endByte ) {
-	  copySize = min( (unsigned long long) BUFF_SIZE, fileInfos[ i ].endByte - currIndex + 1 );
-	  inputFile.read( buff, copySize );
-	  currIndex += copySize;
+		// read split and send to workers
+		inputFile.seekg( currIndex );      
+		while( currIndex <= fileInfos[ i ].endByte ) {
+		copySize = min( (unsigned long long) BUFF_SIZE, fileInfos[ i ].endByte - currIndex + 1 );
+		inputFile.read( buff, copySize );
+		currIndex += copySize;
 
-	  // send to workers
-	  int rxNodeId = i + 1;
-	  MPI::COMM_WORLD.Send( buff, copySize, MPI::CHAR, rxNodeId, 0 );
-	}
+		// send to workers
+		int rxNodeId = i + 1;
+		MPI::COMM_WORLD.Send( buff, copySize, MPI::CHAR, rxNodeId, 0 );
+		}
       }
     }
     else {
@@ -138,70 +138,70 @@ int main( int argc, char* argv[] )
       // Multicast new files (subset-by-subset)
       MPI::Intracomm mgComm;
       for( unsigned int i = 0; i < numInput; i++ ) {
-	unsigned int nfid = i + 1;
-	NodeSet& ns = cg->getNodeSetFromFileID( nfid );
-	int color = 1;
-	mgComm = MPI::COMM_WORLD.Split( color, nodeRank );      
-	cout << "Subset: ";
-	for( auto nit = ns.begin(); nit != ns.end(); nit++ ) {
-	  cout << *nit << " ";
-	}
-	// cout << endl;
+		unsigned int nfid = i + 1;
+		NodeSet& ns = cg->getNodeSetFromFileIDACDC(nfid);
+		int color = 1;
+		mgComm = MPI::COMM_WORLD.Split( color, nodeRank );      
+		cout << "Subset: ";
+		for( auto nit = ns.begin(); nit != ns.end(); nit++ ) {
+		cout << *nit << " ";
+		}
+		// cout << endl;
 
-	// Calculate total size of data to be sent
-	unsigned long long totalSize = 0;
-	for( auto oit = newFileMap[ ns ].begin(); oit != newFileMap[ ns ].end(); oit++ ) {
-	  unsigned int idx = *oit - 1;
-	  totalSize += fileInfos[ idx ].endByte - fileInfos[ idx ].startByte + 1;
-	}
-	cout << "    Total size = " << totalSize << endl;
-	mgComm.Bcast( &totalSize, 1, MPI::UNSIGNED_LONG_LONG, 0 );
+		// Calculate total size of data to be sent
+		unsigned long long totalSize = 0;
+		for( auto oit = newFileMap[ ns ].begin(); oit != newFileMap[ ns ].end(); oit++ ) {
+		unsigned int idx = *oit - 1;
+		totalSize += fileInfos[ idx ].endByte - fileInfos[ idx ].startByte + 1;
+		}
+		cout << "    Total size = " << totalSize << endl;
+		mgComm.Bcast( &totalSize, 1, MPI::UNSIGNED_LONG_LONG, 0 );
 
-	// Send data
+		// Send data
 
-	// //inputNew is a local copy of data to be sent. It is for the purpose of debugging
-	// char filePath[ MAX_FILE_PATH ];
-	// sprintf( filePath, "%s_%d_S", conf->getInputPath(), nfid - 1 );
-	// ofstream inputNew( filePath, ios::out | ios::binary | ios::trunc );
-	// if ( !inputNew.is_open() ) {
-	//   cout << "Cannot open input file " << filePath << endl;
-	//   assert( false );
-	// }
+		// //inputNew is a local copy of data to be sent. It is for the purpose of debugging
+		// char filePath[ MAX_FILE_PATH ];
+		// sprintf( filePath, "%s_%d_S", conf->getInputPath(), nfid - 1 );
+		// ofstream inputNew( filePath, ios::out | ios::binary | ios::trunc );
+		// if ( !inputNew.is_open() ) {
+		//   cout << "Cannot open input file " << filePath << endl;
+		//   assert( false );
+		// }
 
-	if( totalSize == 0 ) {
-	  // inputNew.close();
-	  continue;
-	}
-	
-	unsigned long long totalSend = 0;
-	vector<unsigned long>::iterator oit = newFileMap[ ns ].begin();
-	unsigned int idx = *oit - 1;
-	unsigned long long currIndex = fileInfos[ idx ].startByte;
-	inputFile.seekg(currIndex);
-	unsigned long long copySize = 0;
-	while( totalSend < totalSize ) {
-	  if( currIndex > fileInfos[ idx ].endByte ) {
-	    oit++;
-	    idx = *oit - 1;
-	    currIndex = fileInfos[ idx ].startByte;
-	    inputFile.seekg( currIndex );	    
-	  }
+		if( totalSize == 0 ) {
+		// inputNew.close();
+		continue;
+		}
+		
+		unsigned long long totalSend = 0;
+		vector<unsigned long>::iterator oit = newFileMap[ ns ].begin();
+		unsigned int idx = *oit - 1;
+		unsigned long long currIndex = fileInfos[ idx ].startByte;
+		inputFile.seekg(currIndex);
+		unsigned long long copySize = 0;
+		while( totalSend < totalSize ) {
+		if( currIndex > fileInfos[ idx ].endByte ) {
+			oit++;
+			idx = *oit - 1;
+			currIndex = fileInfos[ idx ].startByte;
+			inputFile.seekg( currIndex );	    
+		}
 
-	  unsigned long long readByte = min( BUFF_SIZE - copySize, fileInfos[ idx ].endByte - currIndex + 1 );
-	  inputFile.read( buff + copySize, readByte );
-	  currIndex += readByte;
-	  copySize += readByte;
+		unsigned long long readByte = min( BUFF_SIZE - copySize, fileInfos[ idx ].endByte - currIndex + 1 );
+		inputFile.read( buff + copySize, readByte );
+		currIndex += readByte;
+		copySize += readByte;
 
-	  if( copySize == BUFF_SIZE || totalSend + copySize == totalSize ) {
-	    // inputNew.write( buff, copySize );
-	    mgComm.Bcast( buff, copySize, MPI::CHAR, 0 );
-	    totalSend += copySize;
-	    copySize = 0;
-	  }
-	}
-	
-	// inputNew.close();
-	mgComm.Free();
+		if( copySize == BUFF_SIZE || totalSend + copySize == totalSize ) {
+			// inputNew.write( buff, copySize );
+			mgComm.Bcast( buff, copySize, MPI::CHAR, 0 );
+			totalSend += copySize;
+			copySize = 0;
+		}
+		}
+		
+		// inputNew.close();
+		mgComm.Free();
       }
     }
 
@@ -242,7 +242,7 @@ int main( int argc, char* argv[] )
 	unsigned int fid = i + 1;
 
 	// create multicast domain
-	NodeSet& ns = cg->getNodeSetFromFileID( fid );
+	NodeSet& ns = cg->getNodeSetFromFileIDACDC( fid );
 	int color = ( ns.find( nodeRank ) != ns.end() ) ? 1 : 0;
 	MPI::Intracomm mgComm = MPI::COMM_WORLD.Split( color, nodeRank );
 	if( color == 0 ) {

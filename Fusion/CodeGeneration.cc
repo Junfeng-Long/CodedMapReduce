@@ -15,7 +15,7 @@ CodeGeneration::CodeGeneration( int _N, int _K, int _R, int _numM, int _numW ): 
     cout << "N is not divisible by [K choose R]\n";
     assert( false );
   }
-  Eta = N / NodeSubsetR.size();
+  Eta = N/2 / NodeSubsetR.size();
   constructM();
   
   // for( int nid = 1; nid <= K; nid++ ) {

@@ -59,7 +59,8 @@ class CodedWorker
 
   
  private:
-  MPI::Intracomm workerComm;
+  MPI::Intracomm workerCommACDC;
+  MPI::Intracomm workerCommCDC;
   CodeGeneration* cg;
 
   PartitionList partitionList;
@@ -71,7 +72,8 @@ class CodedWorker
 
   NodeSetEnDataMap encodeDataSend;
   NodeSetVecEnDataMap encodeDataRecv;
-  MulticastGroupMap multicastGroupMap;
+  MulticastGroupMap multicastGroupMapACDC;
+  MulticastGroupMap multicastGroupMapCDC;
   pthread_t decodeThread;
 
  public: // Because of thread
@@ -85,7 +87,7 @@ class CodedWorker
  public:
  CodedWorker( unsigned int _rank ): rank( _rank ) {}
   ~CodedWorker();
-  void setWorkerComm( MPI::Intracomm& comm ) { workerComm = comm; }
+  void setWorkerComm( MPI::Intracomm& commACDC, MPI::Intracomm& commCDC ) { workerCommACDC = commACDC; workerCommCDC = commCDC;}
   void run();
   
 
@@ -96,11 +98,13 @@ class CodedWorker
   void execEncoding();
   void execShuffle1();
   void execShuffle2();
+  void execShuffle();
   void execDecoding();
   static void* parallelDecoder( void* pthis );
   void sendEncodeData( EnData& endata, MPI::Intracomm& comm );
   void recvEncodeData( SubsetSId nsid, unsigned int actId, MPI::Intracomm& comm, int* totalsize);
-  void genMulticastGroup();
+  void genMulticastGroupACDC();
+  void genMulticastGroupCDC();
   void printLocalList();
   void writeInputPartitionCollection();
   void outputLocalList();

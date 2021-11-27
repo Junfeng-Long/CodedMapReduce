@@ -93,7 +93,6 @@ void CodedWorker::run()
   time = clock();
   execMap();
   //cout<<"Conf";
-  time = clock();
   time = clock() - time;
   rTime = double( time ) / CLOCKS_PER_SEC;  
   MPI::COMM_WORLD.Gather( &rTime, 1, MPI::DOUBLE, NULL, 1, MPI::DOUBLE, 0 );      
@@ -409,8 +408,8 @@ void CodedWorker::execDecoding()
         }
         
         //cout<<encodePreData[ nsid ][ meta.vpList ].size<<endl;
-        unsigned char* oData = encodePreData[ nsid ][ meta.vpList ][ meta.partNumber ].data;
-        unsigned long long oSize = encodePreData[ nsid ][ meta.vpList ][ meta.partNumber ].size;
+        unsigned char* oData = encodePreData[ nsid ][ meta.vpList ][ meta.partNumber -1 ].data;
+        unsigned long long oSize = encodePreData[ nsid ][ meta.vpList ][ meta.partNumber -1 ].size;
         unsigned long long maxByte = min( oSize, cdSize ) * conf->getLineSize();
         unsigned long long maxIter = maxByte / sizeof( uint32_t );
         for( unsigned long long i = 0; i < maxIter; i++ ) {
@@ -433,8 +432,8 @@ void CodedWorker::execDecoding()
       	}
       }
 
-      decodePreData[ nsid ][ dcMeta.vpList ][ dcMeta.partNumber ].data = cdData;
-      decodePreData[ nsid ][ dcMeta.vpList ][ dcMeta.partNumber ].size = dcMeta.size;
+      decodePreData[ nsid ][ dcMeta.vpList ][ dcMeta.partNumber - 1 ].data = cdData;
+      decodePreData[ nsid ][ dcMeta.vpList ][ dcMeta.partNumber - 1 ].size = dcMeta.size;
     }
     
   }

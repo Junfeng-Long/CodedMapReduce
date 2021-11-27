@@ -19,15 +19,17 @@ int main()
     //MPI::Intracomm workerComm = MPI::COMM_WORLD.Split( 0, nodeRank );
     MPI::Intracomm workerComm;
     MPI_Comm_dup(MPI_COMM_WORLD, workerComm);
+    MPI::Intracomm COM = MPI::COMM_WORLD.Split( 0, nodeRank );
     masterNode.setWorkerComm( workerComm );
     masterNode.run();
   }
   else {
     //cout<<nodeRank;
     CodedWorker workerNode( nodeRank );
-    MPI::Intracomm workerComm;
-    MPI_Comm_dup(MPI_COMM_WORLD, workerComm);
-    workerNode.setWorkerComm( workerComm );
+    MPI::Intracomm workerCommACDC;
+    MPI_Comm_dup(MPI_COMM_WORLD, workerCommACDC);
+    MPI::Intracomm workerCommCDC = MPI::COMM_WORLD.Split( 1, nodeRank );
+    workerNode.setWorkerComm( workerCommACDC, workerCommCDC );
     //cout<<"Node"<<nodeRank<<" Split succeed"<<endl;
     workerNode.run();
   }

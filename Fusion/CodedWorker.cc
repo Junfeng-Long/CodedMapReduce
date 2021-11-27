@@ -82,7 +82,8 @@ void CodedWorker::run()
   //cout<<"Node"<<rank<<"  Generating Code"<<endl;
   time = clock();
   cg = new CodeGeneration( conf->getNumInput(), conf->getNumReducer(), conf->getLoad(), conf->getNumMasterFile(), conf->getNumWorkerFile() );
-  genMulticastGroup();
+  genMulticastGroupACDC();
+  genMulticastGroupCDC();
   time = clock() - time;
   rTime = double( time ) / CLOCKS_PER_SEC;
   MPI::COMM_WORLD.Gather( &rTime, 1, MPI::DOUBLE, NULL, 1, MPI::DOUBLE, 0 );    
@@ -93,9 +94,9 @@ void CodedWorker::run()
   time = clock();
   execMap();
   //cout<<"Conf";
-  time = clock();
   time = clock() - time;
   rTime = double( time ) / CLOCKS_PER_SEC;  
+  //cout<<rTime<<endl;
   MPI::COMM_WORLD.Gather( &rTime, 1, MPI::DOUBLE, NULL, 1, MPI::DOUBLE, 0 );      
 
  
@@ -120,8 +121,9 @@ void CodedWorker::run()
   // SHUFFLING PHASE
   //cout<<"Node"<<rank<<"  Shuffle"<<endl;
   //time = clock();
-  execShuffle1();
-  execShuffle2();
+  execShuffle();
+  //execShuffle1();
+  //execShuffle2();
   //time = clock() - time;
   //cout << rank << ": Shuffle phase takes " << double( time ) / CLOCKS_PER_SEC << " seconds.\n";
 
@@ -445,7 +447,7 @@ void CodedWorker::execShuffle1()
   vector< NodeSet > SetS =  cg->getNodeSubsetSContain(rank);
   for (auto i = SetS.begin(); i != SetS.end(); i++){
     SubsetSId nsid = cg->getSubsetSId(*i);
-    MPI::Intracomm mcComm = multicastGroupMap[ nsid ];
+    MPI::Intracomm mcComm = multicastGroupMapACDC[ nsid ];
     //t = clock();
     recvEncodeData(nsid, 0, mcComm, &totalsize);
     //t = clock() - t;
@@ -576,11 +578,13 @@ void CodedWorker::execShuffle2()
 
   // NODE-BY-NODE
   clock_t time;
+  
   //map< NodeSet, SubsetSId > ssmap = cg->getSubsetSIdMap();
   for ( unsigned int activeId = 1; activeId <= conf->getNumReducer(); activeId++ ) {
     unsigned long long tolSize;
     clock_t txTime;
-    workerComm.Barrier();
+    workerCommCDC.Barrier();
+    //cout<<"Acitive: "<<activeId<<endl;
     if ( rank == activeId ) {
       time = clock();
       txTime = 0;
@@ -599,7 +603,7 @@ void CodedWorker::execShuffle2()
   	    continue;
       }
 
-      MPI::Intracomm mcComm = multicastGroupMap[ nsid ];
+      MPI::Intracomm mcComm = multicastGroupMapCDC[ nsid ];
       if ( rank == activeId ) {
 	      txTime -= clock();
   	    sendEncodeData( encodeDataSend[ nsid ], mcComm );
@@ -626,7 +630,7 @@ void CodedWorker::execShuffle2()
     }
 
     // Active node should stop timer here
-    workerComm.Barrier();        
+    workerCommCDC.Barrier();        
     if ( rank == activeId ) {
       time = clock() - time;
       double rTime = double( time ) / CLOCKS_PER_SEC;
@@ -637,6 +641,13 @@ void CodedWorker::execShuffle2()
     }
   }
 
+}
+
+void CodedWorker::execShuffle(){
+  execShuffle1();
+  //cout<<"Shuffle1 Finished"<<endl;
+  execShuffle2();
+  //cout<<"Shuffle2 Finished"<<endl;
 }
 
 
@@ -917,7 +928,7 @@ void CodedWorker::recvEncodeData( SubsetSId nsid, unsigned int rootId, MPI::Intr
 }
 
 
-void CodedWorker::genMulticastGroup()
+void CodedWorker::genMulticastGroupACDC()
 {
   map< NodeSet, SubsetSId > ssmap = cg->getSubsetSIdMap();
   for( auto nsit = ssmap.begin(); nsit != ssmap.end(); nsit++ ) {
@@ -925,9 +936,24 @@ void CodedWorker::genMulticastGroup()
     SubsetSId nsid = nsit->second;
     int color = ( ns.find( rank ) != ns.end() ) ? 1 : 0;
     //cout<<color<<endl;
-    MPI::Intracomm mgComm = workerComm.Split(color, rank);
+    MPI::Intracomm mgComm = workerCommACDC.Split(color, rank);
     //cout<<"Split";
-    multicastGroupMap[ nsid ] = mgComm;
+    multicastGroupMapACDC[ nsid ] = mgComm;
+    
+  }
+}
+
+void CodedWorker::genMulticastGroupCDC()
+{
+  map< NodeSet, SubsetSId > ssmap = cg->getSubsetSIdMap();
+  for( auto nsit = ssmap.begin(); nsit != ssmap.end(); nsit++ ) {
+    NodeSet ns = nsit->first;
+    SubsetSId nsid = nsit->second;
+    int color = ( ns.find( rank ) != ns.end() ) ? 1 : 0;
+    //cout<<color<<endl;
+    MPI::Intracomm mgComm = workerCommCDC.Split(color, rank);
+    //cout<<"Split";
+    multicastGroupMapCDC[ nsid ] = mgComm;
     
   }
 }

@@ -30,8 +30,8 @@ class Configuration {
   
   unsigned int getNumReducer() const { return numReducer; }
   unsigned int getNumInput() const { return numInput; }  
-  unsigned int getNumMasterFile() const { return master_file; }
-  unsigned int getNumWorkerFile() const { return worker_file; }  
+  //unsigned int getNumMasterFile() const { return master_file; }
+  //unsigned int getNumWorkerFile() const { return worker_file; }  
   const char *getInputPath() const { return inputPath; }
   const char *getOutputPath() const { return outputPath; }
   const char *getPartitionPath() const { return partitionPath; }

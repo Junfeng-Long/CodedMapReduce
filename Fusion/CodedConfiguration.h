@@ -16,14 +16,16 @@ class CodedConfiguration : public Configuration {
     master_file = 3;
     worker_file = 3;  
     
-    inputPath = "../Input/Input1M";
-    outputPath = "../Output/Output1M";
-    partitionPath = "../Partition/Partition10000-C";
+    inputPath = "../Input1/Input10G";
+    outputPath = "../Output1/Output10G";
+    partitionPath = "../Partition1/Partition10000-C";
     numSamples = 10000;    
   }
   ~CodedConfiguration() {}
 
   unsigned int getLoad() const { return load; }
+  unsigned int getNumMasterFile() const { return master_file; }
+  unsigned int getNumWorkerFile() const { return master_file; }
 };
 
 #endif
